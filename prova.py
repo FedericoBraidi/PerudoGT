@@ -2,39 +2,44 @@ from itertools import combinations_with_replacement, product
 from graphviz import Digraph
 
 # Function to perform backwards induction, it is a recursive function which
-# has to be called by passing the root node. Still not tested
+# has to be called by passing the root node.
 
 def backward_induction(node):
+
     if node.is_terminal():
-        return node.payoffs  # Terminal node, return payoffs
+        return node.payoffs  # If it's a terminal node, return payoffs
 
-    # For decision nodes, compute the optimal action
-    optimal_action = None
+    # For decision nodes (non terminal), compute the optimal action
     optimal_payoff = None
+    child_payoffs = {}
 
-    for action, child in node.children.items():
-        child_payoff = backward_induction(child)
+    for child in node.children.values():    # Iterate through the children of the current node
 
-        if optimal_payoff is None or is_better(child_payoff, optimal_payoff, node.player):
-            optimal_action = action
-            optimal_payoff = child_payoff
+        # Take the payoff of the children (obtained through backward induction) and turn it into
+        # a tuple, because lists cannot be used as keys in a dictionary.
 
-    node.payoffs = optimal_payoff  # Assign the computed optimal payoff to this node
-    node.optimal_action = optimal_action  # Record the optimal action
+        payoff=tuple(backward_induction(child))
+
+        # Associate the path to reach the children with the payoff
+        if payoff in child_payoffs:            
+            child_payoffs[payoff].append(child.move_path)
+        else:
+            child_payoffs[payoff] = [child.move_path]
+
+    # This is a bit hard to read but basically it extracts the payoffs for all players of the best move for the current player
+    # i.e. it first extracts from the payoff tuples used as keys in the dictionary, the payoff of the current player
+    # then it identifies the best of these and get all payoff tuples where the current player has that payoff
+     
+    optimal_payoff=tuple([x for x in child_payoffs.keys() if x[node.player-1]==max([j[node.player-1] for j in list(child_payoffs.keys())])][0])
+
+    # Collapse the tree by one level, assign to the current node, the best payoff for the current player
+    # and put the paths to those payoffs into the move_path variable of the current node. 
+    # The current node will then be treated as terminal because it has payoff != None
+
+    node.move_path=child_payoffs[optimal_payoff]
+    node.payoffs=list(optimal_payoff)
+
     return optimal_payoff
-
-# Function to choose the preferred path. Still not tested
-
-def is_better(payoff1, payoff2, player):
-    """
-    Determines whether payoff1 is better than payoff2 for the given player.
-    For simplicity, assume players are 1 (maximize first value) and 2 (maximize second value).
-    """
-    if player == 1:
-        return payoff1[0] > payoff2[0]
-    elif player == 2:
-        return payoff1[1] > payoff2[1]
-    return False
 
 # Class that allows to model a Node of a tree.
 # Each node has a player which is the player that takes the decision starting from that node,
@@ -132,10 +137,8 @@ def build_complete_tree(node, num_players, num_dice, num_faces, dice_throws, cur
             # Check whether the bid was correct or not and set the payoffs or their opposite
 
             if current_bid[0]<=sum(1 for die in dice if die == current_bid[1] or die == num_faces):
-                print(payoffs)
                 node.children[bid].payoffs=payoffs
             else:
-                print(payoffs*(-1))
                 node.children[bid].payoffs=[-1*x for x in payoffs]
 
 # This function creates all the trees, one for each dice throw, given the number of player,
@@ -187,7 +190,6 @@ def build_dot_from_tree(node, dot=None):
 
     if node.is_terminal(): 
 
-        print(node.payoffs)
         label += f"\nPayoffs: {node.payoffs}"
 
     # Add the current node to the graph with the label
@@ -222,4 +224,9 @@ dot = build_dot_from_tree(root_node)
 # Render the tree to a PNG file and display it
 render_tree(dot)
 
+print("##################################")
 
+backward_induction(root_node)
+
+print(root_node.payoffs)
+print(root_node.move_path)
