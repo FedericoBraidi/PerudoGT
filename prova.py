@@ -21,6 +21,7 @@ def backward_induction(node):
         payoff=tuple(backward_induction(child))
 
         # Associate the path to reach the children with the payoff
+
         if payoff in child_payoffs:            
             child_payoffs[payoff].append(child.move_path)
         else:
@@ -84,6 +85,54 @@ def available_bids(current_bid, num_dice, num_faces):
 
     return valid_bids
 
+def calc_prob_win_loss(bet, player_dice_throws, num_players, num_faces):
+
+    print(bet)
+    print(player_dice_throws)
+
+    num_dice=len(player_dice_throws)
+
+    dice = []
+
+    for _ in range(num_players-1):
+        dice.append(list(combinations_with_replacement(iterable=range(1, num_faces + 1), r=num_dice)))
+
+    print(dice)
+
+    all_combinations = list(product([player_dice_throws],*dice))
+    all_combinations = [(a + b) for (a, b) in all_combinations]
+
+    print(all_combinations)
+
+    num_win=0
+    num_lose=0
+
+    for dice in all_combinations:
+
+        print(dice)
+        print(bet[0])
+        print(bet[1])
+        print([x for x in dice])
+        print(sum(1 for die in dice if die == bet[1] or die == num_faces))
+        print()
+        if bet[0]<=sum(1 for die in dice if die == bet[1] or die == num_faces):
+
+            num_win+=1
+        
+        else:
+
+            num_lose+=1
+
+    num_tot=num_win+num_lose
+    prob_win = num_win/num_tot
+    prob_lose = num_lose/num_tot            
+
+    print(num_win)
+    print(num_lose)
+    print(num_tot)
+
+    return prob_win, prob_lose
+
 # This is a recursive function that builds a tree, given the number of player,
 # number of dice per player, number of faces on each die and the result of the initial throws.
 # This function doesn't build the full tree with the Nature choices for the two players (dice throws)
@@ -130,16 +179,33 @@ def build_complete_tree(node, num_players, num_dice, num_faces, dice_throws, cur
         elif bid=='Bluff':
 
             # Create the payoff vector in case the last bid was correct (all -1s except for the one that did the last bid, might be changed)
+            # and in case it is incorrect
 
-            payoffs= [-1]*num_players
-            payoffs[node.children[bid].player-1]=1
+            payoffs_win = [-1]*num_players
+            payoffs_win[node.children[bid].player-1]=1
+            payoffs_lose = [-1*x for x in payoffs_win]
 
+            # Weight the correct and incorrect cases with their respective probabilities 
+            # which are conditional on only knowing own dice throw
+
+            prob_win, prob_lose = calc_prob_win_loss(bet=current_bid,player_dice_throws=dice_throws[node.player-1],
+                                                     num_players=num_players, num_faces=num_faces)
+            print(node.move_path)
+            print(prob_win)
+            print(prob_lose)
+
+            # Assign payoff as weighted sum
+
+            node.children[bid].payoffs=[(prob_win*win)+(prob_lose*lose) for win,lose in zip(payoffs_win,payoffs_lose)]
+            
+            """
             # Check whether the bid was correct or not and set the payoffs or their opposite
 
             if current_bid[0]<=sum(1 for die in dice if die == current_bid[1] or die == num_faces):
-                node.children[bid].payoffs=payoffs
+                node.children[bid].payoffs=payoffs_win
             else:
-                node.children[bid].payoffs=[-1*x for x in payoffs]
+                node.children[bid].payoffs=[-1*x for x in payoffs_win]
+            """
 
 # This function creates all the trees, one for each dice throw, given the number of player,
 # the number of dice per player, and the number of faces per dice.
@@ -190,7 +256,7 @@ def build_dot_from_tree(node, dot=None):
 
     if node.is_terminal(): 
 
-        label += f"\nPayoffs: {node.payoffs}"
+        label += f"\nPayoffs: {[f'{p:.4f}' for p in node.payoffs]}"
 
     # Add the current node to the graph with the label
     dot.node(str(id(node)), label=label)
@@ -216,7 +282,7 @@ trees = build_trees(num_players=2, num_dice=1, num_faces=3)
 
 # Take a specific tree of those created
 
-root_node = trees[((2,),(1,))]
+root_node = trees[((3,),(2,))]
 
 # Build the dot graph from the root node of the tree
 dot = build_dot_from_tree(root_node)
