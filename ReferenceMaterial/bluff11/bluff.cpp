@@ -164,6 +164,7 @@ void nextRoll(int * roll, int size)
   {
     // Try to increment if by 1.
     if (roll[i] < DIEFACES) {
+
       // if possible, do it and then set everything to the right back to 1
       roll[i]++;
       for (int j = i+1; j < size; j++)
