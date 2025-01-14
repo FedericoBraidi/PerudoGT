@@ -2,7 +2,7 @@ import itertools as iter
 import math
 import time
 
-p1dice=2
+p1dice=5
 p2dice=1
 die_faces=3
 
