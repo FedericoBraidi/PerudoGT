@@ -1,0 +1,21 @@
+# ASK FEDE #
+
+# Line 1301 -> the +1 for the bluff is missing?
+# Line 1265 -> this for is because I want to check for same roll like (1, 1) and (1, 1) when I have 2 or more dices
+# Line 1318 -> isc_width is a GLOBAL variables (i take the maximum between the dices of P1 and P2)
+# Line 1328 -> the for orders the bid (we say that a bid that increases the dice number is higher)
+# Line 1333 -> ask why if and then while -> why am I skipping even dices?
+
+# Line 1356 -> This is like a CFR function but it's used to populate the tree
+
+# Line 149 -> lastUpdate not used? Isn't it the same as actions_here? I'm doing it twice because I want to skip curr_move_prob
+# Line 1402 -> Why do I need to update bounds? (bounds are maximum positive regrets)
+
+# Line 107 -> Inizialize the two arrays with value self.size
+# Line 549 -> return both??
+# Line 577 - 580 -> what does this mean? I know that is the one that adds the 1 in the bidsequence, but I don't actually know how this work.
+# Line 593 -> Fix comment
+# Line 644 -> Why this is equivalent to a terminal node?
+# Line 769 -> Ask for the syntax
+# Line 864 -> How to determine winner??
+# Line 1017 -> Ask for syntax

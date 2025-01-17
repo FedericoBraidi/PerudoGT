@@ -153,7 +153,7 @@ class InfosetStore():
 
                 running_max = -math.inf
                 
-                for a in range(actions_here): 
+                for a in range(int(actions_here)): 
                 
                     cfr = self.table[row][col] 
                     
@@ -1056,7 +1056,30 @@ def init_infosets(gamestate, player, bidseq):
     
     iss.dump_to_disk(filename)
 
-def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, update_player):
+
+def sample_chance_event(player):
+    num_chance_outcomes = num_chance_outcomes_1 if player==1 else num_chance_outcomes_2
+    chance_prob = chance_prob_1 if player==1 else chance_prob_2
+    chance_outcomes = chance_outcomes_1 if player==1 else chance_outcomes_2
+    
+    roll = random.uniform(0, 1)
+    sum = 0.0
+
+    for i in range(num_chance_outcomes):
+        chance_p = chance_prob[i]
+
+        if roll >= sum and roll < sum + chance_p:
+            outcome = i
+            prob = chance_p
+            return outcome, prob
+
+        sum += chance_p
+
+    # We shouldn't arrive here ever
+    assert(False)
+        
+
+def cfrcs(gamestate, current_player, bidseq, reach1, reach2, chance_reach, flag, update_player):
     
     """
     print(gamestate.__string__())
@@ -1082,22 +1105,13 @@ def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, up
         
         # Run over all possible rolls for player 1
         
-        for i in range(num_chance_outcomes_1):
-            
-            # Get the probability of that roll, usually it is uniform
-            
-            chance_prob = chance_prob_1[i]
-            
-            # Create the gamestate and set the roll, define the chance_reach probability as the original (1) times the chance of the roll
-            
-            new_gamestate = gamestate.copy(); 
-            new_gamestate.p1roll = i; 
-            new_chance_reach = chance_prob*chance_reach
-
-            # Update ev by the cfr of the new gamestate (the subgame) weigthed by the chance of the roll, everything else (bidseq, player, etc) 
-            # remain the same since no move has been made by the players
-
-            ev += chance_prob*cfr(new_gamestate, current_player, bidseq, reach1, reach2, new_chance_reach, flag, update_player)
+        sampled_outcome, sampled_prob = sample_chance_event(1)
+                    
+        new_gamestate = gamestate.copy(); 
+        new_gamestate.p1roll = sampled_outcome
+        new_chance_reach = chance_reach*sampled_prob
+        
+        ev += cfrcs(new_gamestate, current_player, bidseq, reach1, reach2, new_chance_reach, flag, update_player)
 
         return ev
 
@@ -1105,17 +1119,19 @@ def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, up
 
     elif gamestate.p2roll == -1:
         
+        # Define an expected value variable, since this is the first node of the tree, this will be the expected value of the game????
+        
         ev = 0.0
         
-        for i in range(num_chance_outcomes_2):
-            
-            chance_prob = chance_prob_2[i]
-            
-            new_gamestate = gamestate.copy()
-            new_gamestate.p2roll = i
-            new_chance_reach = chance_prob*chance_reach
+        # Run over all possible rolls for player 1
+        
+        sampled_outcome, sampled_prob = sample_chance_event(2)
 
-            ev += chance_prob*cfr(new_gamestate, current_player, bidseq, reach1, reach2, new_chance_reach, flag, update_player)
+        new_gamestate = gamestate.copy(); 
+        new_gamestate.p2roll = sampled_outcome; 
+        new_chance_reach = chance_reach*sampled_prob
+
+        ev += cfrcs(new_gamestate, current_player, bidseq, reach1, reach2, new_chance_reach, flag, update_player)
 
         return ev
     
@@ -1146,7 +1162,7 @@ def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, up
     # Define the infosetkey and retrieve the infoset from the iss using get, this also updates the regrets and the curr move probs with regret matching
     
     infosetkey = bidseq
-    infosetkey = infosetkey<<isc_width
+    infosetkey = infosetkey<<isc_width    
     
     if current_player == 1:
         infosetkey = infosetkey | gamestate.p1roll
@@ -1187,13 +1203,14 @@ def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, up
         
         # Run cfr of the child to get its payoff
         
-        payoff = cfr(new_gamestate, 3-current_player, newbidseq, newreach1, newreach2, chance_reach, flag, update_player) 
+        payoff = cfrcs(new_gamestate, 3-current_player, newbidseq, newreach1, newreach2, chance_reach, flag, update_player) 
         
         # Set the expected value of the action with the payoff and update the current strat with the payoff weighted by the current probability of the move being played
         
         move_ev[action] = payoff 
         strat_ev += move_prob*payoff 
 
+    """
     print('Infosetkey: ',bin(infosetkey))
     print('Starting bid:',gamestate.curbid+1)
     print('Maxbid: ',maxbid)
@@ -1205,8 +1222,8 @@ def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, up
     
     print('Moves ev: ',move_ev)
     print('Strat ev: ',strat_ev)
-
-    time.sleep(1)
+    """
+    #time.sleep(1)
     
     # Define the myreach and oppreach probabilies based on which player is playing
     
@@ -1219,7 +1236,7 @@ def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, up
         
         for a in range(actions_here):
             
-            infoset.cfr[a] += (chance_reach*oppreach)*(move_ev[a] - strat_ev) 
+            infoset.cfr[a] += chance_reach*oppreach*(move_ev[a] - strat_ev) 
     
     # If flag is >=1 and the current player is the updatePlayer then update the strategies i.e. the totalmoveProb of the infoset by adding the 
     # current move_prob (updated with regret when calling getInfoset) weighted by myreach
@@ -1286,9 +1303,9 @@ def main():
     params = {
         'p1dice':       1,
         'p2dice':       1,
-        'diefaces':     2,
-        'n_iter':       1000,
-        'filename':     None#'iss212.initial.txt',
+        'diefaces':     5,
+        'n_iter':       100000,
+        'filename':     'iss115.initial.txt',
     }
     
     # Calculate number of bids (+1 for bluff)
@@ -1366,6 +1383,8 @@ def main():
     bidseq = 0
     
     # Run for the defined number of iterations
+    mean1 = 0
+    mean2 = 0
     
     for i in range(params['n_iter']):
         
@@ -1375,7 +1394,9 @@ def main():
         
         gs1 = GameState()
         bidseq = np.uint64(0)
-        ev1 = cfr(gs1, 1, bidseq, 1.0, 1.0, 1.0, 1, 1)
+        ev1 = cfrcs(gs1, 1, bidseq, 1.0, 1.0, 1.0, 1, 1)
+        mean1 += (ev1/params['n_iter'])
+
         
         #print('Strat ev for player 1: ', ev1)
         
@@ -1383,7 +1404,9 @@ def main():
         
         gs2 = GameState()
         bidseq = np.uint64(0)
-        ev2 = cfr(gs2, 1, bidseq, 1.0, 1.0, 1.0, 1, 2)
+        ev2 = cfrcs(gs2, 1, bidseq, 1.0, 1.0, 1.0, 1, 2)
+        mean2 += (ev2/params['n_iter'])
+
         
         #print('Strat ev for player 2: ', ev2)
     
@@ -1392,7 +1415,7 @@ def main():
     
         if (i%10==0 and i!=0) or i==params['n_iter']-1:
             
-            print(f"ev1 = {ev1}, ev2 = {ev2}")
+            print(f"ev1 = {mean1}, ev2 = {mean2}")
             b1,b2 = 0,0
             b1,b2 = iss.compute_bounds(b1, b2,i) 
             print(f" b1 = {b1}, b2 = {b2}, bound = {(2.0*max(b1,b2))}")

@@ -153,7 +153,7 @@ class InfosetStore():
 
                 running_max = -math.inf
                 
-                for a in range(actions_here): 
+                for a in range(int(actions_here)): 
                 
                     cfr = self.table[row][col] 
                     
@@ -1056,7 +1056,56 @@ def init_infosets(gamestate, player, bidseq):
     
     iss.dump_to_disk(filename)
 
-def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, update_player):
+
+
+def sample_chance_event(player):
+    num_chance_outcomes = num_chance_outcomes_1 if player==1 else num_chance_outcomes_2
+    
+    roll = random.uniform(0, 1)
+    sum = 0.0
+
+    for i in range(num_chance_outcomes):
+        chance_p = get_chance_probability(player, i)
+
+        if roll >= sum and roll < sum + chance_p:
+            outcome = i
+            prob = chance_p
+            return outcome, prob
+
+        sum += chance_p
+
+    # We shouldn't arrive here ever
+    assert(False)
+
+import random
+
+def sample_action(infoset, epsilon, first_time_uniform):
+    # Determine epsilon value
+    if first_time_uniform:
+        eps = 1.0 if infoset.last_update == 0 else epsilon
+    else:
+        eps = epsilon
+
+    # Build the distribution to sample from
+    actions_here = infoset.actions_here
+    dist = [0.0] * actions_here
+    for action in range(actions_here):
+        dist[action] = eps * (1.0 / actions_here) + (1.0 - eps) * infoset.curr_move_probs[action]
+
+    # Sample an action
+    roll = random.uniform(0, 1)
+    sum_prob = 0.0
+    for action in range(actions_here):
+        if roll >= sum_prob and roll < sum_prob + dist[action]:
+            sample_prob = dist[action]
+            return action, sample_prob
+        sum_prob += dist[action]
+
+    assert(False)
+    
+    
+
+def cfres(gamestate, current_player, bidseq, update_player):
     
     """
     print(gamestate.__string__())
@@ -1069,7 +1118,7 @@ def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, up
     if gamestate.curbid==numbids:
         
         # Get the payoff of this gamestate
-        
+    
         return get_payoff(gamestate=gamestate,update_player=update_player)
     
     # Check if we are at a chance node for player 1, this is seen by the fact that p1roll has not been set yet
@@ -1079,56 +1128,26 @@ def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, up
         # Define an expected value variable, since this is the first node of the tree, this will be the expected value of the game????
         
         ev = 0.0
+
+        new_gamestate = gamestate.copy()
+        new_gamestate.p1roll, sample_prob = sample_chance_event(1)
         
-        # Run over all possible rolls for player 1
+        #print('Roll 1:', new_gamestate.p1roll)
         
-        for i in range(num_chance_outcomes_1):
-            
-            # Get the probability of that roll, usually it is uniform
-            
-            chance_prob = chance_prob_1[i]
-            
-            # Create the gamestate and set the roll, define the chance_reach probability as the original (1) times the chance of the roll
-            
-            new_gamestate = gamestate.copy(); 
-            new_gamestate.p1roll = i; 
-            new_chance_reach = chance_prob*chance_reach
-
-            # Update ev by the cfr of the new gamestate (the subgame) weigthed by the chance of the roll, everything else (bidseq, player, etc) 
-            # remain the same since no move has been made by the players
-
-            ev += chance_prob*cfr(new_gamestate, current_player, bidseq, reach1, reach2, new_chance_reach, flag, update_player)
-
-        return ev
+        return cfres(new_gamestate, current_player, bidseq, update_player)
 
     # Do the same for player 2
 
     elif gamestate.p2roll == -1:
         
         ev = 0.0
-        
-        for i in range(num_chance_outcomes_2):
-            
-            chance_prob = chance_prob_2[i]
-            
-            new_gamestate = gamestate.copy()
-            new_gamestate.p2roll = i
-            new_chance_reach = chance_prob*chance_reach
 
-            ev += chance_prob*cfr(new_gamestate, current_player, bidseq, reach1, reach2, new_chance_reach, flag, update_player)
-
-        return ev
-    
-    # Check for pruning optimization, if the reach_prob of the adversary is 0 we shouldn't calculate the regret later (it's useless),
-    # if also our reach_prob is 0 we can stop altogether
-    
-    if (flag==1) and ((current_player==update_player==1 and reach2<=0) or (current_player==update_player==2 and reach1<=0)):
+        new_gamestate = gamestate.copy()
+        new_gamestate.p2roll, sample_prob = sample_chance_event(2)
         
-        flag=2
+        #print('Roll 2:', new_gamestate.p2roll)
         
-    if (flag==2) and ((current_player==update_player==1 and reach1<=0) or (current_player==update_player==2 and reach2<=0)):
-        
-        return 0.0
+        return cfres(new_gamestate, current_player, bidseq, update_player)
     
     # Define the number of possible moves, if gamestate.curbid==0 then bluff is not possible, otherwise it is
     
@@ -1164,77 +1183,89 @@ def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, up
     strat_ev = 0.0
     action = -1
     
-    # Run over available bids
-    
-    for i in range(gamestate.curbid+1, maxbid):
+    if current_player != update_player:
         
-        action+=1
+        sampled_action, sampled_prob = sample_action(infoset, 0.0, False)
         
-        # Get the current move probability (updated with regret matching when using get) and use it to update the correct reach probability
+        """
+        print('Current player:', current_player)
+        print('Sampled action:', sampled_action)
+        """
         
-        move_prob = infoset.curr_move_probs[action]; 
-        newreach1 = move_prob*reach1 if (current_player == 1) else reach1 
-        newreach2 = move_prob*reach2 if (current_player == 2) else reach2
+        i = gamestate.curbid
 
-        # Create the gamestate of the child game
+        # Run over available bids
+        for _ in range(gamestate.curbid+1, maxbid):
+            i+=1
+            action+=1
 
+            if action == sampled_action:
+                break
+
+
+        move_prob = infoset.curr_move_probs[action]
         new_gamestate = gamestate.copy() 
         new_gamestate.prevbid = gamestate.curbid
         new_gamestate.curbid = i 
         new_gamestate.calling_player = current_player
         new_bidseq = bidseq
         newbidseq = new_bidseq | (1 << (numbids-i))
-        
-        # Run cfr of the child to get its payoff
-        
-        payoff = cfr(new_gamestate, 3-current_player, newbidseq, newreach1, newreach2, chance_reach, flag, update_player) 
-        
-        # Set the expected value of the action with the payoff and update the current strat with the payoff weighted by the current probability of the move being played
-        
-        move_ev[action] = payoff 
-        strat_ev += move_prob*payoff 
 
-    print('Infosetkey: ',bin(infosetkey))
-    print('Starting bid:',gamestate.curbid+1)
-    print('Maxbid: ',maxbid)
-    print('Num_actions: ',infoset.actions_here)
-    print('Actions: ',action)
-    print('MoveProb: ',move_prob)
-    print(reach1, ' -> ', newreach1)
-    print(reach2, ' -> ', newreach2)
-    
-    print('Moves ev: ',move_ev)
-    print('Strat ev: ',strat_ev)
+        strat_ev = cfres(new_gamestate, 3-current_player, newbidseq, update_player)
 
-    time.sleep(1)
-    
-    # Define the myreach and oppreach probabilies based on which player is playing
-    
-    myreach = reach1 if (current_player == 1) else reach2 
-    oppreach = reach2 if (current_player == 1) else reach1
-    
-    # If flag is still 1 and the current player is the updatePlayer then update the regrets with (move_ev[a]-strat_ev) weigthed by chance_reach*oppreach
-    
-    if (flag == 1 and current_player == update_player):
         
-        for a in range(actions_here):
+    else:
+        for i in range(gamestate.curbid+1, maxbid):
+            action+=1
             
-            infoset.cfr[a] += (chance_reach*oppreach)*(move_ev[a] - strat_ev) 
-    
-    # If flag is >=1 and the current player is the updatePlayer then update the strategies i.e. the totalmoveProb of the infoset by adding the 
-    # current move_prob (updated with regret when calling getInfoset) weighted by myreach
-    
-    if (flag >= 1 and current_player == update_player):
-    
-        for a in range(actions_here):
+            move_prob = infoset.curr_move_probs[action]
+            new_gamestate = gamestate.copy() 
+            new_gamestate.prevbid = gamestate.curbid
+            new_gamestate.curbid = i 
+            new_gamestate.calling_player = current_player
+            new_bidseq = bidseq
+            newbidseq = new_bidseq | (1 << (numbids-i))
             
-            infoset.total_move_probs[a] += myreach*infoset.curr_move_probs[a]; 
-    
-    # Finally if the current player is the update_player call function put of iss to save the current (modified) infoset to the iss
+            payoff = cfres(new_gamestate, 3-current_player, newbidseq, update_player)
+
+            move_ev[action] = payoff
+            strat_ev += move_prob * payoff
+  
+        """
+        print('Infosetkey: ',bin(infosetkey))
+        print('Starting bid:',gamestate.curbid+1)
+        print('Maxbid: ',maxbid)
+        print('Num_actions: ',infoset.actions_here)
+        print('Actions: ',action)
+        print('MoveProb: ', move_prob)
+
+        print('Moves ev: ',move_ev)
+        print('Strat ev: ',strat_ev)
+        print('CFR: ',infoset.cfr)
+        print('Total move prob: ',infoset.total_move_probs)
+
+        time.sleep(1)
+        """
+        
+    # Update regrets
     
     if (current_player == update_player):
         
-        new_flag=iss.put(infosetkey, infoset, actions_here, 0)
+        for a in range(actions_here):
+            
+            infoset.cfr[a] += (move_ev[a] - strat_ev) 
+
+    # Update strategies
+    
+    if (current_player != update_player):
+    
+        for a in range(actions_here):
+            
+            infoset.total_move_probs[a] += infoset.curr_move_probs[a]
+    
+    # Finally call function put of iss to save the current (modified) infoset to the iss
+    
+    new_flag=iss.put(infosetkey, infoset, actions_here, 0)
     
     # Return strat_ev
     
@@ -1286,9 +1317,9 @@ def main():
     params = {
         'p1dice':       1,
         'p2dice':       1,
-        'diefaces':     2,
-        'n_iter':       1000,
-        'filename':     None#'iss212.initial.txt',
+        'diefaces':     6,
+        'n_iter':       100000,
+        'filename':     'iss116.initial.txt'
     }
     
     # Calculate number of bids (+1 for bluff)
@@ -1366,6 +1397,8 @@ def main():
     bidseq = 0
     
     # Run for the defined number of iterations
+    mean1 = 0
+    mean2 = 0
     
     for i in range(params['n_iter']):
         
@@ -1375,7 +1408,8 @@ def main():
         
         gs1 = GameState()
         bidseq = np.uint64(0)
-        ev1 = cfr(gs1, 1, bidseq, 1.0, 1.0, 1.0, 1, 1)
+        ev1 = cfres(gs1, 1, bidseq, 1)
+        mean1 += (ev1/params['n_iter'])
         
         #print('Strat ev for player 1: ', ev1)
         
@@ -1383,7 +1417,8 @@ def main():
         
         gs2 = GameState()
         bidseq = np.uint64(0)
-        ev2 = cfr(gs2, 1, bidseq, 1.0, 1.0, 1.0, 1, 2)
+        ev2 = cfres(gs2, 1, bidseq, 2)
+        mean2 += (ev2/params['n_iter'])
         
         #print('Strat ev for player 2: ', ev2)
     
@@ -1392,7 +1427,7 @@ def main():
     
         if (i%10==0 and i!=0) or i==params['n_iter']-1:
             
-            print(f"ev1 = {ev1}, ev2 = {ev2}")
+            print(f"mean1 = {mean1}, mean2 = {mean2}")
             b1,b2 = 0,0
             b1,b2 = iss.compute_bounds(b1, b2,i) 
             print(f" b1 = {b1}, b2 = {b2}, bound = {(2.0*max(b1,b2))}")
