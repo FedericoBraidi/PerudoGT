@@ -146,7 +146,7 @@ class InfosetStore():
                 actions_here=self.table[row][col]
                 row, col, pos, curr_rowsize = self.next(row, col, pos, curr_rowsize)
                 
-                lastUpdate = self.table[row][col]
+                last_update = self.table[row][col]
                 row, col, pos, curr_rowsize = self.next(row, col, pos, curr_rowsize)
 
                 # Find the max of the regrets for this infoset
@@ -1253,29 +1253,27 @@ def determine_chance_outcomes(player):
     # Calculate the possible chance outcomes using combinations with replacement
     
     chance_outcomes=list(iter.combinations_with_replacement(range(1,num_faces+1),num_dice))
-    
+
     # Get the number of chance outcomes
-    
-    num_chance_outcomes=len(chance_outcomes)
-    
-    # Get the probability of each chance outcome
-    
-    chance_prob=[0.0]*num_chance_outcomes
-    
-    for i, roll in enumerate(chance_outcomes):
-    
-        # This basically creates a dictionary which counts how many times each element in roll appears
         
+    num_chance_outcomes=len(chance_outcomes)
+
+    # Get the probability of each chance outcome
+
+    chance_prob=[0.0]*num_chance_outcomes
+
+    for i, roll in enumerate(chance_outcomes):
+
+        # This basically creates a dictionary which counts how many times each element in roll appears
         count=Counter(roll)
 
         # Count the permutations
-        
         perm=1
         for key in count:
             
             perm*=math.factorial(count[key])
             
-        chance_prob[i]=perm/num_chance_outcomes
+        chance_prob[i]=math.factorial(num_dice)/((num_faces**num_dice)*perm)
     
     return num_chance_outcomes, chance_outcomes, chance_prob
     
