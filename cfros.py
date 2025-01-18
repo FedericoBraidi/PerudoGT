@@ -1127,8 +1127,6 @@ def cfros(gamestate, current_player, bidseq, reach1, reach2, sprob1, sprob2, upd
         
         new_gamestate = gamestate.copy()
         new_gamestate.p1roll, sample_prob = sample_chance_event(1)
-        
-        print('P1 roll:', new_gamestate.p1roll)
 
         suffix_reach, rtl_sample_prob, update_player_payoff = cfros(new_gamestate, current_player, bidseq, reach1, reach2, sprob1, sprob2, update_player, suffix_reach, rtl_sample_prob)
         
@@ -1141,8 +1139,6 @@ def cfros(gamestate, current_player, bidseq, reach1, reach2, sprob1, sprob2, upd
         new_gamestate = gamestate.copy()
         new_gamestate.p2roll, sample_prob = sample_chance_event(2)
         
-        print('P2 roll:', new_gamestate.p2roll)
-
         suffix_reach, rtl_sample_prob, update_player_payoff = cfros(new_gamestate, current_player, bidseq, reach1, reach2, sprob1, sprob2, update_player, suffix_reach, rtl_sample_prob)
         
         return suffix_reach, rtl_sample_prob, update_player_payoff
@@ -1182,9 +1178,7 @@ def cfros(gamestate, current_player, bidseq, reach1, reach2, sprob1, sprob2, upd
     epsilon = 0.6 if current_player == update_player else 0
     
     sampled_action, sampled_prob = sample_action(infoset, epsilon, False)
-    
-    print('Sampled action:', sampled_action)
-        
+            
     newsprob1 = sampled_prob*sprob1 if current_player==1 else sprob1
     newsprob2 = sampled_prob*sprob2 if current_player==2 else sprob2
     
@@ -1221,7 +1215,7 @@ def cfros(gamestate, current_player, bidseq, reach1, reach2, sprob1, sprob2, upd
     itl_reach = new_suffix_reach*infoset.curr_move_probs[action]
     suffix_reach = itl_reach  
 
-    
+    """
     print('Infosetkey: ',bin(infosetkey))
     print('Starting bid:',gamestate.curbid+1)
     print('Maxbid: ',maxbid)
@@ -1237,6 +1231,7 @@ def cfros(gamestate, current_player, bidseq, reach1, reach2, sprob1, sprob2, upd
     print(sprob2, ' -> ', newsprob2)
     
     time.sleep(1)
+    """
     
     # Define the myreach and oppreach probabilies based on which player is playing
     
@@ -1313,9 +1308,9 @@ def main():
     params = {
         'p1dice':       1,
         'p2dice':       1,
-        'diefaces':     2,
-        'n_iter':       1000000,
-        'filename':     None#'iss212.initial.txt'
+        'diefaces':     6,
+        'n_iter':       100000,
+        'filename':     'iss116.initial.txt'
     }
     
     # Calculate number of bids (+1 for bluff)
@@ -1393,6 +1388,8 @@ def main():
     bidseq = 0
     
     # Run for the defined number of iterations
+    mean1 = 0
+    mean2 = 0
     
     for i in range(params['n_iter']):
         
@@ -1405,6 +1402,9 @@ def main():
         suffix_reach = 1.0
         rtl_sample_prob = 1.0
         result1 = cfros(gs1, 1, bidseq, 1.0, 1.0, 1.0, 1.0, 1, suffix_reach, rtl_sample_prob)
+
+        mean1 += (result1[2]/params['n_iter'])
+
         
         #print('Strat ev for player 1: ', ev1)
         
@@ -1416,6 +1416,8 @@ def main():
         rtl_sample_prob = 1.0
         result2 = cfros(gs2, 1, bidseq, 1.0, 1.0, 1.0, 1.0, 2, suffix_reach, rtl_sample_prob)
         
+        mean2 += (result2[2]/params['n_iter'])
+        
         #print('Strat ev for player 2: ', ev2)
     
     # If we are at the last iteration (or every few iterations) compute the bounds with the iss.compute_bounds function and best reponses with function
@@ -1423,7 +1425,7 @@ def main():
     
         if (i%10==0 and i!=0) or i==params['n_iter']-1:
             
-            print(f"ev1 = {result1[2]}, ev2 = {result2[2]}")
+            print(f"mean1 = {mean1}, mean2 = {mean2}")
             b1,b2 = 0,0
             b1,b2 = iss.compute_bounds(b1, b2,i) 
             print(f" b1 = {b1}, b2 = {b2}, bound = {(2.0*max(b1,b2))}")

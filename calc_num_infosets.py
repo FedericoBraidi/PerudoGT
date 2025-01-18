@@ -1,10 +1,9 @@
 import itertools as iter
 import math
-import time
 
 p1dice=2
 p2dice=1
-die_faces=3
+die_faces=2
 
 def num_outcomes(dice, faces):
     return math.comb(faces + dice - 1, dice)
