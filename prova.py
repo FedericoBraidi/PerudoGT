@@ -1194,6 +1194,7 @@ def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, up
         move_ev[action] = payoff 
         strat_ev += move_prob*payoff 
 
+    """
     print('Infosetkey: ',bin(infosetkey))
     print('Starting bid:',gamestate.curbid+1)
     print('Maxbid: ',maxbid)
@@ -1207,7 +1208,7 @@ def cfr(gamestate, current_player, bidseq, reach1, reach2, chance_reach,flag, up
     print('Strat ev: ',strat_ev)
 
     time.sleep(1)
-    
+    """
     # Define the myreach and oppreach probabilies based on which player is playing
     
     myreach = reach1 if (current_player == 1) else reach2 
@@ -1285,10 +1286,10 @@ def main():
     
     params = {
         'p1dice':       1,
-        'p2dice':       1,
+        'p2dice':       4,
         'diefaces':     2,
-        'n_iter':       1000,
-        'filename':     None#'iss212.initial.txt',
+        'n_iter':       10000,
+        'filename':     'iss142.initial.txt',
     }
     
     # Calculate number of bids (+1 for bluff)

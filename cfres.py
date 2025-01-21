@@ -1315,11 +1315,11 @@ def main():
     global bids
     
     params = {
-        'p1dice':       3,
-        'p2dice':       1,
+        'p1dice':       4,
+        'p2dice':       2,
         'diefaces':     2,
         'n_iter':       100000,
-        'filename':     'iss312.initial.txt'
+        'filename':     'iss422.initial.txt'
     }
     
     # Calculate number of bids (+1 for bluff)
