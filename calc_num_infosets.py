@@ -2,9 +2,9 @@ import itertools as iter
 import math
 import time
 
-p1dice=5
-p2dice=1
-die_faces=3
+p1dice=3
+p2dice=4
+die_faces=2
 
 def num_outcomes(dice, faces):
     return math.comb(faces + dice - 1, dice)
@@ -38,6 +38,8 @@ for bidseq in list(iter.product((0, 1), repeat=possible_bids)):
     count_space_needed+=2*available_bids*(outcomes_p1 if (sum(bidseq)%2==0) else outcomes_p2)
 
 print('There are ',possible_bids, ' possible bids')
+print('Num outcomes player 1: ', outcomes_p1)
+print('Num outcomes player 2: ', outcomes_p2)
 print('There are ',len(list(iter.product((0, 1), repeat=possible_bids))), ' possible bid sequences')
 print('There are ',count_num_infosets, ' infosets')
 print('Needed space is ', count_space_needed)

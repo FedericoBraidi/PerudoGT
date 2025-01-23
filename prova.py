@@ -1025,17 +1025,17 @@ def init_infosets(gamestate, player, bidseq):
         infosetkey = infosetkey << 1
         
         # Put the updated infoset back into the InfosetStore, the put function returns a boolean indicating wether the infoset was new or not 
-        
+        """
         print('Current player: ',player)
         print('Bidseq:',bin(bidseq))
         print('Roll: ', gamestate.p1roll if player==1 else gamestate.p2roll)
         print('Number of available actions: ', actions_here)
         print('Infosetkey: ',bin(infosetkey))
         print('Maximum allowed bid: ',maxbid)
-        
+        """
         new_flag=iss.put(infosetkey, infoset, actions_here, 0)
         
-        print('Inserting infoset with key: ', bin(infosetkey), '. It was new' if new_flag else '. It already existed')
+        #print('Inserting infoset with key: ', bin(infosetkey), '. It was new' if new_flag else '. It already existed')
         
     # Do the same foor player 2
         
@@ -1046,7 +1046,7 @@ def init_infosets(gamestate, player, bidseq):
         infosetkey = infosetkey | 1
         new_flag=iss.put(infosetkey, infoset, actions_here, 0)
         
-        print('Inserting infoset with key: ', bin(infosetkey), '. It was new' if new_flag else '. It already existed')
+        #print('Inserting infoset with key: ', bin(infosetkey), '. It was new' if new_flag else '. It already existed')
         
     # Define a filename to save the InfosetStore
         
@@ -1287,10 +1287,10 @@ def main():
     global bids
     
     params = {
-        'p1dice':       2,
-        'p2dice':       1,
-        'diefaces':     3,
-        'n_iter':       10000,
+        'p1dice':       3,
+        'p2dice':       4,
+        'diefaces':     2,
+        'n_iter':       10,
         'filename':     None#'iss212.initial.txt',
     }
     
